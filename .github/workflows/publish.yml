@@ -1,0 +1,64 @@
+name: Publish
+
+# Publishing runs from a published GitHub Release, so the tag and the artefact
+# cannot drift. Manual runs are for a retry after a failed publish.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Required for npm provenance / trusted publishing (OIDC). Harmless when
+      # publishing with a token instead.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # No `registry-url` here on purpose: it writes an .npmrc that expects
+      # NODE_AUTH_TOKEN, and npm then prefers that token instead of doing the
+      # OIDC exchange with the trusted publisher.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Node 22 ships npm 10.x; trusted publishing needs npm >= 11.5.1.
+      - name: npm with OIDC support
+        run: npm install --global npm@^11.5.1
+
+      - name: npm version
+        run: npm --version
+
+      - name: Test before publishing
+        run: npm test
+
+      - name: The tag matches package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF}" = "refs/tags/${GITHUB_REF_NAME}" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$tag" ]; then
+              echo "::error::tag $tag does not match package.json $version"
+              exit 1
+            fi
+          else
+            echo "manual run on ${GITHUB_REF_NAME}: not enforcing the tag check"
+          fi
+          echo "publishing $version"
+
+      # Trusted publishing: npm exchanges the GitHub OIDC token for a
+      # short-lived publish credential. No secret, nothing to rotate. The
+      # publisher must be configured for this repository + workflow filename
+      # on npmjs.com.
+      #
+      # `--provenance` is deliberately omitted while the repository is
+      # PRIVATE: provenance attestations require a public repository. Add the
+      # flag once visibility is flipped.
+      - name: Publish to npm
+        run: npm publish --access public

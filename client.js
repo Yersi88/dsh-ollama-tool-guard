@@ -13,7 +13,13 @@ window.__ModuleLoader__.load({
       ['ingress.enabled', 'Ingress patterns'],
     ]
     const THRESHOLDS = ['undo', 'self', 'credential', 'sensitive', 'exfil']
-    const KINDS = ['read', 'write', 'modify', 'destroy', 'system']
+    const KINDS = [
+      ['read', 'only inspects, searches or fetches'],
+      ['write', 'creates a file or appends output'],
+      ['modify', 'overwrites or edits an existing file'],
+      ['destroy', 'deletes, truncates or force-pushes'],
+      ['system', 'services, permissions, network, remote hosts'],
+    ]
 
     const read = (target, path) =>
       path.split('.').reduce((value, key) => (value === null || value === undefined ? undefined : value[key]), target)
@@ -39,6 +45,12 @@ window.__ModuleLoader__.load({
       background: 'transparent', color: 'inherit',
     }
     const mono = { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }
+    const numberInput = {
+      ...mono, width: 110, padding: '4px 6px', borderRadius: 6,
+      border: '1px solid color-mix(in srgb, currentColor 25%, transparent)',
+      background: 'transparent', color: 'inherit',
+    }
+    const hint = { fontSize: 12, opacity: 0.6 }
 
     function Panel() {
       const [config, setConfig] = useState(null)
@@ -46,6 +58,7 @@ window.__ModuleLoader__.load({
       const [meta, setMeta] = useState({})
       const [status, setStatus] = useState('loading…')
       const [dirty, setDirty] = useState(false)
+      const [probe, setProbe] = useState(null)
 
       const load = useCallback(async () => {
         setStatus('loading…')
@@ -126,6 +139,86 @@ window.__ModuleLoader__.load({
           })),
 
         h('section', { style: card },
+          h('strong', { style: { display: 'block', marginBottom: 4 } }, 'Connection'),
+          h('p', { style: { margin: '0 0 8px', fontSize: 12, opacity: 0.65 } },
+            'Must be a System One endpoint — Ollama serves it at /v1/systemone and it is what answers the typed questions. An OpenAI-compatible /v1/chat/completions URL cannot: the decision models (clef, clef-flash, kev) are not chat models. Use a local Ollama to keep reviews on this machine; a model with a :cloud suffix is routed through Ollama to the provider.'),
+          h('div', { style: rowStyle },
+            h('span', { style: nameStyle }, 'endpoint'),
+            h('input', {
+              type: 'text',
+              value: config.endpoint ?? '',
+              placeholder: 'http://127.0.0.1:11434/v1/systemone',
+              onChange: (event) => change('endpoint', event.target.value.trim()),
+              style: { ...mono, flex: 1, padding: '4px 6px', borderRadius: 6, border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', background: 'transparent', color: 'inherit' },
+            })),
+          h('div', { style: rowStyle },
+            h('span', { style: nameStyle }, 'model'),
+            h('input', {
+              type: 'text',
+              value: config.model ?? '',
+              placeholder: 'clef:cloud',
+              onChange: (event) => change('model', event.target.value.trim()),
+              style: { ...mono, width: 220, padding: '4px 6px', borderRadius: 6, border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', background: 'transparent', color: 'inherit' },
+            }),
+            h('button', {
+              style: button,
+              onClick: async () => {
+                setProbe({ text: 'testing the saved config…' })
+                try {
+                  const response = await fetch('/tool-guard/test', { method: 'POST', headers: { 'x-tool-guard': '1' } })
+                  const body = await response.json()
+                  setProbe({ text: body.ok
+                    ? `ok — ${body.model} answered in ${body.ms} ms (${(body.answers ?? []).join(', ')})`
+                    : `failed — ${body.error ?? body.detail ?? ('HTTP ' + body.status)}` })
+                } catch (error) {
+                  setProbe({ text: `failed — ${error.message}` })
+                }
+              },
+            }, 'Test saved config')),
+          probe === null ? null : h('p', { style: { ...mono, margin: '6px 0 0', opacity: 0.8 } }, probe.text)),
+
+        h('section', { style: card },
+          h('strong', { style: { display: 'block', marginBottom: 6 } }, 'Model call'),
+          h('p', { style: { margin: '0 0 8px', fontSize: 12, opacity: 0.65 } },
+            'The decision model shares the GPU with the agent, so a request can queue behind your own work. Retries and a longer timeout cover that; exhausting them still fails closed.'),
+          h('label', { style: label },
+            h('input', {
+              type: 'checkbox',
+              checked: config.sendArguments !== false,
+              onChange: (event) => change('sendArguments', event.target.checked),
+            }),
+            h('span', { style: { fontSize: 13 } }, 'Send call arguments to the model')),
+          h('p', { style: { margin: '0 0 10px', fontSize: 12, opacity: 0.65 } },
+            'On by default, and it should stay on: the model cannot judge content it has not seen, and an agent can otherwise execute a file whose body nobody inspected. Off scores only the call\'s shape — weaker verdicts — while the deterministic layers still read script bodies locally.'),
+          h('div', { style: rowStyle },
+            h('span', { style: nameStyle }, 'timeout'),
+            h('input', {
+              type: 'number', min: 1000, max: 120000, step: 1000,
+              value: config.timeoutMs ?? 15000,
+              onChange: (event) => change('timeoutMs', Number(event.target.value)),
+              style: numberInput,
+            }),
+            h('span', { style: hint }, 'ms per attempt')),
+          h('div', { style: rowStyle },
+            h('span', { style: nameStyle }, 'retries'),
+            h('input', {
+              type: 'number', min: 0, max: 5, step: 1,
+              value: config.retries ?? 2,
+              onChange: (event) => change('retries', Number(event.target.value)),
+              style: numberInput,
+            }),
+            h('span', { style: hint }, 'extra attempts after the first')),
+          h('div', { style: rowStyle },
+            h('span', { style: nameStyle }, 'backoff'),
+            h('input', {
+              type: 'number', min: 0, max: 5000, step: 50,
+              value: config.retryBackoffMs ?? 300,
+              onChange: (event) => change('retryBackoffMs', Number(event.target.value)),
+              style: numberInput,
+            }),
+            h('span', { style: hint }, 'ms, doubling each retry'))),
+
+        h('section', { style: card },
           h('strong', { style: { display: 'block', marginBottom: 6 } }, 'Script review root'),
           h('p', { style: { margin: '0 0 8px', fontSize: 12, opacity: 0.65 } },
             'Scripts a bash command runs from under this directory have their contents reviewed before dispatch. Anything outside it is never read. Empty uses the host working directory.'),
@@ -142,9 +235,11 @@ window.__ModuleLoader__.load({
           })),
 
         h('section', { style: card },
-          h('strong', { style: { display: 'block', marginBottom: 6 } }, 'Surfaced effect classes'),
-          h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 14 } },
-            ...KINDS.map((kind) =>
+          h('strong', { style: { display: 'block', marginBottom: 4 } }, 'Surface when the model classifies the call as'),
+          h('p', { style: { margin: '0 0 8px', fontSize: 12, opacity: 0.65 } },
+            "Each ticked class makes the model's own classification enough to raise a prompt, whatever the scores are. Untick everything and this rule never fires."),
+          h('div', { style: { display: 'grid', gap: 4 } },
+            ...KINDS.map(([kind, hintText]) =>
               h('label', { key: kind, style: { ...label, padding: 0 } },
                 h('input', {
                   type: 'checkbox',
@@ -156,7 +251,7 @@ window.__ModuleLoader__.load({
                     change('rules.kind.in', next)
                   },
                 }),
-                h('span', { style: { fontSize: 13 } }, kind))))),
+                h('span', { style: { fontSize: 13 } }, `${kind} — ${hintText}`))))),
 
         h('div', { style: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 } },
           h('button', { style: { ...button, opacity: dirty ? 1 : 0.5 }, disabled: !dirty, onClick: save },
