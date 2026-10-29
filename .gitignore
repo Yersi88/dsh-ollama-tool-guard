@@ -1,0 +1,11 @@
+node_modules/
+*.log
+*.bak
+.DS_Store
+# Never commit real session data: replay/ holds actual commands, hostnames and paths.
+replay/
+calls.json
+scored*.json
+set-*.json
+*-scored.json
+*-audit.jsonl

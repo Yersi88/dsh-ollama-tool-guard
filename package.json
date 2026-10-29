@@ -1,0 +1,49 @@
+{
+  "name": "dsh-ollama-tool-guard",
+  "version": "0.3.0",
+  "description": "Per-tool-call decision-model guard for the DeepSeek Harness, with a settings page.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "client.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "guard",
+    "safety",
+    "ollama",
+    "decision-model"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yersi88/dsh-ollama-tool-guard.git"
+  },
+  "author": "Yersi",
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-settings-plugins"]
+    }
+  }
+}

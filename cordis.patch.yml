@@ -1,0 +1,3 @@
+- insert:
+    - id: ollama-tool-guard
+      name: 'dsh-ollama-tool-guard'
