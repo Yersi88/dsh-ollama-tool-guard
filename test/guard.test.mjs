@@ -136,6 +136,32 @@ test('unreachable model fails closed', async () => {
   assert.match(decision.reason, /unreachable/)
 })
 
+test('the default model is a local tag, so a fresh install keeps reviews on the machine', async () => {
+  await configure()
+  const guard = makeGuard()
+  const decision = await guard.ask(...bash('echo hi'))
+  assert.equal(decision.kind, 'next')
+  assert.equal(guard.calls[0].model, 'clef-flash')
+})
+
+test('an unpulled model names the pull instead of failing closed on a bare 404', async () => {
+  await configure()
+  const guard = makeGuard({ failStatus: 404, failTimes: 1 })
+  const decision = await guard.ask(...bash('echo hi'))
+  assert.equal(decision.kind, 'deny')
+  assert.match(decision.reason, /ollama pull clef-flash/)
+  assert.match(decision.reason, /tool-guard\.json/)
+})
+
+test('a missing :cloud model is told to sign in rather than to pull it', async () => {
+  await configure({ model: 'clef:cloud' })
+  const guard = makeGuard({ failStatus: 404, failTimes: 1 })
+  const decision = await guard.ask(...bash('echo hi'))
+  assert.equal(decision.kind, 'deny')
+  assert.match(decision.reason, /Sign this Ollama in/)
+  assert.doesNotMatch(decision.reason, /ollama pull/, 'pulling a :cloud tag is not the fix')
+})
+
 test('a retryable failure is retried and can still succeed', async () => {
   await configure()
   const guard = makeGuard({ failStatus: 503, failTimes: 2 })
@@ -310,7 +336,7 @@ test('a partial nested config keeps the hard-deny patterns it does not restate',
 test('a partial rules override keeps the other rules', async () => {
   await configure({ rules: { undo: { above: 0.9 } } })
   const guard = makeGuard({
-    scores: { ...LOW_SCORES, self: { type: 'noul', noul: 0.99 } },
+    scores: { ...LOW_SCORES, kind: { choice: 'modify', confidence: 0.9 }, self: { type: 'noul', noul: 0.99 } },
   })
   const decision = await guard.ask(...bash('echo hi'))
   assert.equal(decision.kind, 'ask')
@@ -470,7 +496,7 @@ test('a wrapped recursive delete of root is still denied', async () => {
 
 test('an array where an object belongs falls back instead of disabling the layer', async () => {
   await configure({ rules: [] })
-  const guard = makeGuard({ scores: { ...LOW_SCORES, self: { type: 'noul', noul: 0.99 } } })
+  const guard = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'modify' }, self: { type: 'noul', noul: 0.99 } } })
   const decision = await guard.ask(...bash('echo hi'))
   assert.equal(decision.kind, 'ask')
 })
@@ -576,4 +602,28 @@ test('a destructive verb with a quoted target reports unknown rather than inside
   const guard = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'destroy' }, undo: { type: 'noul', noul: 0.9 } } })
   const decision = await guard.ask(...bash('rm -rf "/etc/nginx"'))
   assert.match(decision.reason, /location unknown/)
+})
+
+test('a read is never surfaced by the self rule', async () => {
+  await configure()
+  const guard = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'read', confidence: 0.9 }, self: { type: 'noul', noul: 0.99 } } })
+  const decision = await guard.ask('grep', { pattern: 'model:', path: '/mnt/storage2/AI/dsh-ollama-tool-guard' })
+  assert.equal(decision.kind, 'next')
+})
+
+test('a write touching the guard is still surfaced by the self rule', async () => {
+  await configure()
+  const guard = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'modify', confidence: 0.9 }, self: { type: 'noul', noul: 0.99 } } })
+  const decision = await guard.ask('edit', { file_path: '/mnt/storage2/AI/dsh-ollama-tool-guard/lib/index.js', old_string: 'a', new_string: 'b' })
+  assert.equal(decision.kind, 'ask')
+  assert.match(decision.reason, /guard's own controls/)
+})
+
+test('grep and glob report the location of their path argument', async () => {
+  await configure()
+  const inside = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'modify' }, undo: { type: 'noul', noul: 0.9 } } })
+  assert.match((await inside.ask('grep', { pattern: 'x', path: process.cwd() })).reason, /inside workspace/)
+
+  const outside = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'modify' }, undo: { type: 'noul', noul: 0.9 } } })
+  assert.match((await outside.ask('glob', { pattern: '*.ts', path: '/etc/nginx' })).reason, /OUTSIDE workspace/)
 })

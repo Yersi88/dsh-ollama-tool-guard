@@ -141,7 +141,7 @@ window.__ModuleLoader__.load({
         h('section', { style: card },
           h('strong', { style: { display: 'block', marginBottom: 4 } }, 'Connection'),
           h('p', { style: { margin: '0 0 8px', fontSize: 12, opacity: 0.65 } },
-            'Must be a System One endpoint — Ollama serves it at /v1/systemone and it is what answers the typed questions. An OpenAI-compatible /v1/chat/completions URL cannot: the decision models (clef, clef-flash, kev) are not chat models. Use a local Ollama to keep reviews on this machine; a model with a :cloud suffix is routed through Ollama to the provider.'),
+            'Must be a System One endpoint — Ollama serves it at /v1/systemone and it is what answers the typed questions. An OpenAI-compatible /v1/chat/completions URL cannot: the decision models (clef, clef-flash, kev) are not chat models. Any Ollama decision model works here: clef-flash is the default (small, fast, local), clef is the more careful local option, and a model with a :cloud suffix is routed through Ollama to the provider and sends each reviewed call off the machine.'),
           h('div', { style: rowStyle },
             h('span', { style: nameStyle }, 'endpoint'),
             h('input', {
@@ -156,7 +156,7 @@ window.__ModuleLoader__.load({
             h('input', {
               type: 'text',
               value: config.model ?? '',
-              placeholder: 'clef:cloud',
+              placeholder: 'clef-flash',
               onChange: (event) => change('model', event.target.value.trim()),
               style: { ...mono, width: 220, padding: '4px 6px', borderRadius: 6, border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', background: 'transparent', color: 'inherit' },
             }),
@@ -275,7 +275,7 @@ window.__ModuleLoader__.load({
                       opacity: entry.decision === 'pass' ? 0.6 : 1,
                     },
                   },
-                    h('span', {}, new Date(entry.ts).toLocaleTimeString()),
+                    h('span', {}, new Date(entry.ts).toLocaleTimeString([], { hour12: false })),
                     h('span', {}, entry.decision === 'pass' ? '· pass' : entry.decision),
                     h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
                       `${entry.tool} — ${entry.rule ?? 'no rule'} ${entry.scores ? `(${entry.scores})` : ''}`))))),

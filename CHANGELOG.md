@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-10-30
+
+### Changed
+
+- **The default model is now local.** `model` defaults to `clef-flash` instead of `clef:cloud`, so the shipped configuration matches the promise the plugin makes: with a `127.0.0.1` endpoint and a local tag, no reviewed call, file body or command line leaves the machine. `clef:cloud` remains available as an explicit opt-in for machines that cannot run a local model at all. **This changes behaviour on upgrade** — a fresh install now needs `ollama pull clef-flash` before any tool call is passed, and an existing config that never set `model` will start asking for a model it does not have.
+
+### Fixed
+
+- **A missing model failed closed on a bare status code.** Installing with a local default and no pulled model produced `HTTP 404` and nothing else, while every tool call in the session was denied. A `404` now names the model, the endpoint, the `ollama pull` command and the config path — with a different remedy for a `:cloud` tag, which needs a signed-in account rather than a pull — so the first run explains itself instead of looking like an outage.
+
 ## [0.4.1] — 2026-10-30
 
 ### Changed

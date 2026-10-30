@@ -28,7 +28,9 @@ In that configuration a wrong score **does** block, silently, which is the oppos
 
 With `sendArguments` on — the default — every reviewed call goes to the `endpoint` that judges it, and that payload carries the call's own arguments: for `write`/`edit` the **whole file body**, for `bash` the command text, for any tool its arguments. Scripts under `scriptRoot` referenced by a `bash` call are read and attached as well.
 
-The default endpoint is `clef:cloud`, so by default this content leaves the machine on its way to Cloudflare. That is deliberate: a guard that cannot see what it is judging falls back to scoring shapes, and an agent can then execute a file whose body nobody inspected. If that egress is unacceptable, point `endpoint` at a local model (`clef`, 27B; `clef-flash` or `kev:9b` with less memory) — same verdicts, nothing on the wire. `sendArguments: false` is the fallback when even a local model must not see content, at the cost of much weaker reviews; the deterministic layers keep reading script bodies locally either way.
+The default `model` is the local `clef-flash`, and the default `endpoint` is `http://127.0.0.1:11434/v1/systemone` — a loopback address. With the shipped configuration this content does not leave the machine. Setting `model` to a `:cloud` tag routes it through Ollama to the provider, at which point it does; that is a deliberate change of trade, not a hidden default.
+
+Content still has to reach the judge: a guard that cannot see what it is judging falls back to scoring shapes, and an agent can then execute a file whose body nobody inspected. `sendArguments: false` is the option when even a local model must not see content, at the cost of much weaker reviews; the deterministic layers keep reading script bodies locally either way.
 
 The audit log does **not** carry it: it records the decision, rule, scores, latency and an argument *shape*, never the argument text.
 
@@ -46,7 +48,7 @@ The audit log does **not** carry it: it records the decision, rule, scores, late
 
 ## Arguments sent with the request
 
-With the default `model: clef:cloud`, every reviewed call is sent to Cloudflare: the tool name, the full parsed arguments, the working directory, and — for a `bash` command that names one — the body of the script it is about to run. The audit log stays local and holds no argument text, but the model request is not the log. Configure a local decision model (`clef`, `clef-flash`, or any System One model you run yourself) if that is not acceptable.
+With a `:cloud` model every reviewed call is sent to the provider: the tool name, the full parsed arguments, the working directory, and — for a `bash` command that names one — the body of the script it is about to run. With the default local `clef-flash` that request goes to `127.0.0.1` and stays there. The audit log is local in both cases and holds no argument text, but the model request is not the log.
 
 ## Reporting
 
