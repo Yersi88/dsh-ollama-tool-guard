@@ -57,8 +57,7 @@ jobs:
       # publisher must be configured for this repository + workflow filename
       # on npmjs.com.
       #
-      # `--provenance` is deliberately omitted while the repository is
-      # PRIVATE: provenance attestations require a public repository. Add the
-      # flag once visibility is flipped.
+      # `--provenance` publishes a signed statement binding the tarball to this
+      # repository and commit. It requires a PUBLIC repository; this one is.
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --provenance

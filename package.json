@@ -1,6 +1,6 @@
 {
   "name": "dsh-ollama-tool-guard",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Per-tool-call decision-model guard for the DeepSeek Harness, with a settings page.",
   "type": "module",
   "main": "lib/index.js",
