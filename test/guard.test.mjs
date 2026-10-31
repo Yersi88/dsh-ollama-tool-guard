@@ -627,3 +627,18 @@ test('grep and glob report the location of their path argument', async () => {
   const outside = makeGuard({ scores: { ...LOW_SCORES, kind: { choice: 'modify' }, undo: { type: 'noul', noul: 0.9 } } })
   assert.match((await outside.ask('glob', { pattern: '*.ts', path: '/etc/nginx' })).reason, /OUTSIDE workspace/)
 })
+
+test('reading memories is not an ingest', async () => {
+  await configure()
+  const guard = makeGuard()
+  const decision = await guard.ask('mcp__openviking__read', { uris: ['viking://user/example/memories/preferences/x.md'] })
+  assert.equal(decision.kind, 'next')
+})
+
+test('writing a skill is still an ingest', async () => {
+  await configure()
+  const guard = makeGuard()
+  const decision = await guard.ask('write', { file_path: 'viking://agent/skills/thing/SKILL.md'.replace('viking://agent/', '/'), content: 'x' })
+  assert.equal(decision.kind, 'ask')
+  assert.match(decision.reason, /INGRESS/)
+})
