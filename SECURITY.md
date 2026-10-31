@@ -12,7 +12,7 @@ If the decision model is unavailable the guard fails closed — every tool call 
 
 - `hardDeny` patterns deny outright, without a model call. They are matched against the command string of a command-bearing call **and** against the bodies of the scripts that command runs.
 - `egress` patterns raise a prompt on any command-bearing call.
-- `ingress` patterns and the agent-memory tool-name list raise a prompt on any call.
+- `ingress` patterns raise a prompt when a command hands fetched content to an interpreter: `curl … | sh`, `bash <(curl …)`, download→`chmod +x`→run, clone→run, `eval $(curl …)`. A plain download is not flagged.
 
 **Probabilistic** (a 9B–27B classifier's opinion):
 

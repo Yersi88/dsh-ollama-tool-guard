@@ -9,10 +9,10 @@ A layer that fires means the more expensive ones never run.
 | Layer | Cost | Outcome |
 |---|---|---|
 | `hardDeny` | 0 ms, regex | **deny** — fixed catastrophic patterns: root-level recursive delete, raw write to a block device, filesystem format, fork bomb, sysrq trigger |
-| `egress` / `ingress` | 0 ms, regex | **ask** — data leaving the machine, or external content entering the agent's memory |
+| `egress` / `ingress` | 0 ms, regex | **ask** — data leaving the machine, or fetched content about to run |
 | decision model | ~0.5–1 s | **ask** when a thresholded question trips, otherwise pass |
 
-The layers do not see the same thing, and the difference matters. `hardDeny` reads the command string **and** the bodies of the scripts that command executes, so a wipe hidden in `boom.sh` is denied like the inline one. `egress` reads the command string only. `ingress` matches its tool list on any call but its URI patterns only on calls with no command — a write or an ingest, never a shell command's prose. Nothing is matched against a file the call merely reads.
+The layers do not see the same thing, and the difference matters. `hardDeny` reads the command string **and** the bodies of the scripts that command executes, so a wipe hidden in `boom.sh` is denied like the inline one. `egress` and `ingress` both read the command string only: `egress` looks for the transport shapes that carry data out, `ingress` for the shapes where bytes fetched from the internet reach an interpreter — `| sh`, `bash <(curl …)`, download→`chmod +x`→run, clone→run, `eval $(curl …)`. Nothing is matched against a file the call merely reads, and a plain download is not ingress.
 
 **A model verdict never denies.** A wrong high score costs a prompt. A wrong low score is a missed catch and the call proceeds — that false-negative rate is the layer's residual risk, not a boundary. Denials come only from the deterministic rules or from the guard being unable to run.
 
@@ -53,10 +53,11 @@ Scripts a `bash` command is about to execute are attached to the request, so `ba
 | `questions` | six typed questions | the prompt itself — instructions, criteria and question type |
 | `hardDeny.enabled` | `true` | regex list that denies without a model call |
 | `egress.enabled` | `true` | regex list of outbound-data transports |
-| `ingress.enabled` | `true` | agent-memory write tools plus URI patterns |
+| `ingress.enabled` | `true` | remote content reaching an execution sink: `curl\|sh`, `bash <(curl …)`, download→`chmod +x`→run, clone→run, `eval $(curl …)` |
 | `rules` | see below | question → `{above: n}` or `{in: [...]}` |
 | `alwaysAsk` | `[]` | tool names always surfaced |
 | `skip` | `[]` | tool names never evaluated |
+| `trustWorkspace` | `false` | skip the model for file reads and writes whose target is inside the workspace. Shell commands are still reviewed, and the deterministic layers never consult it |
 
 With the model unreachable, one call stalls for `timeoutMs × (retries + 1) + retryBackoffMs × (2^retries - 1)` before failing closed: **45.9 s** at these defaults, about 15 minutes at the clamp maxima (`timeoutMs` 120000, `retries` 5, `retryBackoffMs` 5000). Every call pays that while the model is down.
 
@@ -84,7 +85,7 @@ Two earlier rule designs were discarded on this data: an `outside` question flag
 
 ## Known gaps
 
-- **Prompt injection via memory ingest** — covered by the deterministic `ingress` layer, not by the model.
+- **Prompt injection through documents or memory** — no deterministic layer covers it. The guard has no memory layer: content that is fetched and later written into instructions passes unless the model judges the call that fetches it.
 - **Resource exhaustion** (filling the disk) scores low on every question.
 - **Cross-call exfiltration** — the guard is stateless. Reading a file in one call and posting it in another passes both checks individually.
 - **Obfuscated destruction** — `x=$(rm -rf /)`, `\rm`, `$IFS`, `nice -n 10 rm …` reach only the model layer, not the deny list.

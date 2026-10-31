@@ -1,6 +1,6 @@
 {
   "name": "dsh-ollama-tool-guard",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Reviews every DeepSeek Harness tool call with a decision model on your own machine: risky calls come back as a prompt, and an unreachable model fails closed.",
   "type": "module",
   "main": "lib/index.js",

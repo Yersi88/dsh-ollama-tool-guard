@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] — 2026-10-31
+
+### Changed
+
+- **`ingress` now means what the word says.** The old layer watched writes into the agent's own memory under a network name, and misfired on every read, on documentation that merely mentioned a memory path, and on a compression call quoting a pattern. It is gone: no memory layer, no tool-name list, no URI patterns, no argument-name guessing.
+- **The replacement is the inbound risk that actually exists:** remote content reaching an execution sink. `curl … | sh`, `bash <(curl …)`, download → `chmod +x` → run, `git clone … && ./…`, and `eval $(curl …)` now ask, deterministically and in 0–3 ms. A plain download or a `web_fetch` is ordinary traffic and passes.
+- **Loopback POSTs are no longer egress**, unless the body names a `:cloud` model (Ollama forwards those to the provider) or the command uses a transport that leaves by definition: `nc`, `scp`, `rsync`.
+- **New setting `trustWorkspace`** (off by default, checkbox in the settings page): file reads and writes whose target is inside the workspace pass without a model call — no prompt, no latency. A convenience, not a boundary: shell commands are still reviewed even inside the workspace, and `hardDeny`/`egress`/`ingress` are unaffected.
+
+### Fixed
+
+- The ingress patterns matched their own documentation: a `git commit -F -` heredoc quoting `bash <(curl …)` was flagged as if it were about to run. Heredoc bodies are stripped before matching, and the process-substitution pattern gained a leading `\b` so the `sh` inside an unrelated word can no longer pair with a later `<(\.
+
+- A config seeded under an older release keeps its own `ingress.patterns` forever, silently overriding the shipped defaults — which is how the reworked rule stayed inert here until the block was removed. Deleting a block from `~/.dsh/tool-guard.json` is now documented as the way to inherit a new default.
+
 ## [0.5.0] — 2026-10-30
 
 ### Changed

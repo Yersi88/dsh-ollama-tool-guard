@@ -190,6 +190,15 @@ window.__ModuleLoader__.load({
             h('span', { style: { fontSize: 13 } }, 'Send call arguments to the model')),
           h('p', { style: { margin: '0 0 10px', fontSize: 12, opacity: 0.65 } },
             'On by default, and it should stay on: the model cannot judge content it has not seen, and an agent can otherwise execute a file whose body nobody inspected. Off scores only the call\'s shape — weaker verdicts — while the deterministic layers still read script bodies locally.'),
+          h('label', { style: label },
+            h('input', {
+              type: 'checkbox',
+              checked: config.trustWorkspace === true,
+              onChange: (event) => change('trustWorkspace', event.target.checked),
+            }),
+            h('span', { style: { fontSize: 13 } }, 'Do not review file reads and writes inside the workspace')),
+          h('p', { style: { margin: '0 0 10px', fontSize: 12, opacity: 0.65 } },
+            'Convenience, not a boundary. Off by default. When on, a file tool whose target is inside the workspace passes without a model call — no prompt, no latency. Shell commands are still reviewed even inside the workspace, because one `bash` line can reach anywhere; the deny, egress and ingress patterns are unaffected either way.'),
           h('div', { style: rowStyle },
             h('span', { style: nameStyle }, 'timeout'),
             h('input', {
